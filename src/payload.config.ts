@@ -33,13 +33,13 @@ export default buildConfig({
   },
   editor: slateEditor({}),
   db: postgresAdapter({
-    pool: {
-      connectionString: process.env.DATABASE_URI,
-      ssl: {
-        rejectUnauthorized: false,
-      },
-    },
-  }),
+  pool: {
+    connectionString: process.env.DATABASE_URI,
+    // Remove SSL here if it causes error; instead include SSL in DATABASE_URI
+  },
+}),
+
+
   typescript: {
     outputFile: path.resolve(__dirname, 'payload-types.ts'),
   },
