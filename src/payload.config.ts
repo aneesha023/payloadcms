@@ -13,9 +13,11 @@ import { buildConfig } from 'payload/config'
 import { Pages } from './collections/Pages'
 import { Tenants } from './collections/Tenants'
 import { Users } from './collections/Users'
+import Forms from './collections/Forms';
+import FormSubmissions from './collections/FormSubmissions';
 
 export default buildConfig({
-  collections: [Users, Tenants, Pages],
+  collections: [Users, Tenants, Pages, Forms, FormSubmissions],
   admin: {
     bundler: webpackBundler(),
     webpack: config => ({

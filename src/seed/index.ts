@@ -1,119 +1,139 @@
 import type { Payload } from 'payload'
+// import { lastLoggedInTenant } from '../collections/Pages/access/lastLoggedInTenant'
 
 export const seed = async (payload: Payload): Promise<void> => {
-  // create super admin
-  await payload.create({
+  // Create super admin if not exists
+  const existingSuperAdmin = await payload.find({
     collection: 'users',
-    data: {
-      email: 'demo@payloadcms.com',
-      password: 'demo',
-      roles: ['super-admin'],
+    where: {
+      email: { equals: 'demo@payloadcms.com' },
     },
   })
 
-  // create tenants, use `*.localhost.com` so that accidentally forgotten changes the hosts file are acceptable
-  const [abc, bbc] = await Promise.all([
+  if (existingSuperAdmin.totalDocs === 0) {
     await payload.create({
+      collection: 'users',
+      data: {
+        email: 'demo@payloadcms.com',
+        password: 'demo',
+        roles: ['super-admin'],
+      },
+    })
+    payload.logger.info('✅ Created super admin')
+  }
+
+  // Create tenants if not exist
+  const getOrCreateTenant = async (name: string, domain: string) => {
+    const existing = await payload.find({
+      collection: 'tenants',
+      where: { name: { equals: name } },
+    })
+
+    if (existing.totalDocs > 0) {
+      return existing.docs[0]
+    }
+
+    const created = await payload.create({
       collection: 'tenants',
       data: {
-        name: 'ABC',
-        domains: [{ domain: 'abc.localhost.com:3000' }],
+        name,
+        domains: [{ domain }],
       },
-    }),
-    await payload.create({
-      collection: 'tenants',
-      data: {
-        name: 'BBC',
-        domains: [{ domain: 'bbc.localhost.com:3000' }],
-      },
-    }),
-  ])
+    })
+    return created
+  }
 
-  // create tenant-scoped admins and users
-  await Promise.all([
-    await payload.create({
-      collection: 'users',
-      data: {
-        email: 'admin@abc.com',
-        password: 'test',
-        roles: ['user'],
-        tenants: [
-          {
-            tenant: abc.id,
-            roles: ['admin'],
-          },
-        ],
-      },
-    }),
-    await payload.create({
-      collection: 'users',
-      data: {
-        email: 'user@abc.com',
-        password: 'test',
-        roles: ['user'],
-        tenants: [
-          {
-            tenant: abc.id,
-            roles: ['user'],
-          },
-        ],
-      },
-    }),
-    await payload.create({
-      collection: 'users',
-      data: {
-        email: 'admin@bbc.com',
-        password: 'test',
-        roles: ['user'],
-        tenants: [
-          {
-            tenant: bbc.id,
-            roles: ['admin'],
-          },
-        ],
-      },
-    }),
-    await payload.create({
-      collection: 'users',
-      data: {
-        email: 'user@bbc.com',
-        password: 'test',
-        roles: ['user'],
-        tenants: [
-          {
-            tenant: bbc.id,
-            roles: ['user'],
-          },
-        ],
-      },
-    }),
-  ])
+  const abc = await getOrCreateTenant('ABC', 'abc.localhost.com:3000')
+  const bbc = await getOrCreateTenant('BBC', 'bbc.localhost.com:3000')
 
-  // create tenant-scoped pages
-  await Promise.all([
-    await payload.create({
+  // Create tenant users/admins if not exist
+  const usersToSeed = [
+    {
+      email: 'admin@abc.com',
+      password: 'test',
+      tenant: abc.id,
+      tenantRoles: ['admin'],
+    },
+    {
+      email: 'user@abc.com',
+      password: 'test',
+      tenant: abc.id,
+      tenantRoles: ['user'],
+    },
+    {
+      email: 'admin@bbc.com',
+      password: 'test',
+      tenant: bbc.id,
+      tenantRoles: ['admin'],
+    },
+    {
+      email: 'user@bbc.com',
+      password: 'test',
+      tenant: bbc.id,
+      tenantRoles: ['user'],
+      lastLoggedInTenant: bbc.id, 
+    },
+  ]
+
+  for (const user of usersToSeed) {
+    const existing = await payload.find({
+      collection: 'users',
+      where: { email: { equals: user.email } },
+    })
+
+    if (existing.totalDocs === 0) {
+      await payload.create({
+        collection: 'users',
+        data: {
+          email: user.email,
+          password: user.password,
+          roles: ['user'],
+          tenants: [
+            {
+              tenant: String(user.tenant),
+              roles: user.tenantRoles as ('admin' | 'user')[],
+            },
+          ],
+          lastLoggedInTenant: String(user.tenant), 
+        },
+      })
+      
+  }
+
+  // Create pages if not exist
+  const pagesToSeed = [
+    {
+      title: 'ABC Home',
+      tenant: String(abc.id),
+      text: 'Hello, ABC!',
+    },
+    {
+      title: 'BBC Home',
+      tenant: String(bbc.id),
+      text: 'Hello, BBC!',
+    },
+  ]
+
+  for (const page of pagesToSeed) {
+    const existing = await payload.find({
       collection: 'pages',
-      data: {
-        tenant: abc.id,
-        title: 'ABC Home',
-        richText: [
-          {
-            text: 'Hello, ABC!',
-          },
-        ],
+      where: {
+        title: { equals: page.title },
+        'tenant': { equals: page.tenant },
       },
-    }),
-    await payload.create({
-      collection: 'pages',
-      data: {
-        title: 'BBC Home',
-        tenant: bbc.id,
-        richText: [
-          {
-            text: 'Hello, BBC!',
-          },
-        ],
-      },
-    }),
-  ])
+    })
+
+    if (existing.totalDocs === 0) {
+      await payload.create({
+        collection: 'pages',
+        data: {
+          title: page.title,
+          tenant: page.tenant,
+          richText: [{ text: page.text }],
+        },
+      })
+    
+    }
+  }
+}
 }
