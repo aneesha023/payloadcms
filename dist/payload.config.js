@@ -38,9 +38,7 @@ exports.default = (0, config_1.buildConfig)({
     db: (0, db_postgres_1.postgresAdapter)({
         pool: {
             connectionString: process.env.DATABASE_URI,
-            ssl: {
-                rejectUnauthorized: false,
-            },
+            // Remove SSL here if it causes error; instead include SSL in DATABASE_URI
         },
     }),
     typescript: {
